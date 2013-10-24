@@ -1,0 +1,115 @@
+-->>            Thresh Hook             <<--
+
+if myHero.charName ~= "Thresh" then return end
+  require "Prodiction"
+	
+local qRange = 1075
+local wRange = 950
+local eRange = 450
+local qWidth = 80
+local QREADY, EREADY = false, false
+if VIP_USER then
+        require "Collision"
+        Col = Collision(qRange, 1200, 0.5, qWidth)
+				tp = ProdictManager.GetInstance()
+        qp = tp:AddProdictionObject(_Q, qRange, 1200, 0.5, qWidth, myHero, function() end)
+        PrintChat("<font color='#CCCCCC'> >> Thresh Hook - Prodiction added by Icy <<</font>")
+else
+        qp = TargetPrediction(qRange, 1.2, 500, qWidth)
+        PrintChat("<font color='#CCCCCC'> >> Thresh Hook - Basic Prediction <<</font>")
+end
+ 
+function OnLoad()
+        ThreshConfig = scriptConfig("ThreshHook", "ThreshHook")
+        ThreshConfig:addParam("HooknPull", "Hook n Pull", SCRIPT_PARAM_ONKEYDOWN, false, 32)
+        ThreshConfig:addParam("PullnPassage", "Pull n Passage", SCRIPT_PARAM_ONKEYDOWN, false, 71)
+        ThreshConfig:addParam("drawCircles", "Draw Ranges", SCRIPT_PARAM_ONOFF, false)
+        ThreshConfig:permaShow("HooknPull")
+        ThreshConfig:permaShow("PullnPassage")
+       
+        ts = TargetSelector(TARGET_LOW_HP, 1200, DAMAGE_PHYSICAL)
+        ts.name = "Thresh"
+        ThreshConfig:addTS(ts)
+        enemyMinions = minionManager(MINION_ENEMY, 1400, myHero)
+end
+ 
+function OnTick()
+        ts:update()
+        enemyMinions:update()
+        QREADY = (myHero:CanUseSpell(_Q) == READY)
+        WREADY = (myHero:CanUseSpell(_W) == READY)
+        EREADY = (myHero:CanUseSpell(_E) == READY)
+        if ts.target ~= nil then
+                if ThreshConfig.HooknPull then
+                        HooknPull()
+                end
+                if ThreshConfig.PullnPassage then
+                        PullnPassage()
+                end
+        end
+end
+ 
+function HooknPull()
+        local predic,_ = qp:GetPrediction(ts.target)
+        if predic and GetDistance(predic) < qRange and QREADY then
+                if VIP_USER then
+                        if not Col:GetMinionCollision(myHero, predic) then
+                                CastSpell(_Q, predic.x, predic.z)
+                        end
+                else CastSpell(_Q, predic.x, predic.z) end
+        end
+        if GetDistance(ts.target) < eRange and EREADY then
+                xPos = myHero.x + (myHero.x - ts.target.x)
+                zPos = myHero.z + (myHero.z - ts.target.z)
+                CastSpell(_E, xPos, zPos)
+        end
+end
+ 
+function PullnPassage()
+        local predic,_ = qp:GetPrediction(ts.target)
+        local castW, castQ = false, false
+        if predic and GetDistance(predic) < qRange and QREADY then
+                if VIP_USER then
+                        if not Col:GetMinionCollision(myHero, predic) then
+                                CastSpell(_Q, predic.x, predic.z)
+                                castW = true
+                        end
+                else
+                        CastSpell(_Q, predic.x, predic.z)
+                        castW = true
+                end
+        end
+        if findClosestAlly() and GetDistance(findClosestAlly()) < wRange and WREADY and castW then
+                CastSpell(_W, findClosestAlly().x, findClosestAlly().z)
+                castQ = true
+                castW = false
+        end
+        if GetDistance(ts.target) < eRange and EREADY then
+                xPos = myHero.x + (myHero.x - ts.target.x)
+                zPos = myHero.z + (myHero.z - ts.target.z)
+                CastSpell(_E, xPos, zPos)
+        end
+end
+ 
+function OnDraw()
+        if not myHero.dead and ThreshConfig.drawCircles then
+                DrawCircle(myHero.x, myHero.y, myHero.z, qRange, 0xCCFF33)
+        end
+end
+ 
+function findClosestAlly()
+        local closestAlly = nil
+        local currentAlly = nil
+        for i=1, heroManager.iCount do
+                currentAlly = heroManager:GetHero(i)
+                if currentAlly.team == myHero.team and not currentAlly.dead and currentAlly.charName ~= myHero.charName then
+                        if closestAlly == nil then
+                                closestAlly = currentAlly
+                        elseif GetDistance(currentAlly) < GetDistance(closestAlly) then
+                                closestAlly = currentAlly
+                        end
+                end
+        end
+return closestAlly
+end
+
